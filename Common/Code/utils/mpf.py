@@ -121,7 +121,7 @@ def _candlestick(ax, quotes, width=0.2, colorup='k', colordown='r',
             t, open, close, high, low = q[:5]
         else:
             t, open, high, low, close = q[:5]
-
+        
         if close >= open:
             color = colorup
             lower = open

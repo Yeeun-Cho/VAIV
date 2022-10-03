@@ -13,12 +13,12 @@ sys.path.append(ROOT)
 sys.path.append(ROOT / 'Common' / 'Code')
 
 from manager import VAIV  # noqa: E402
-from utils.mpf import candlestick_ochl, volume_overlay  # noqa: E402
+from utils.mpf import candlestick_ohlc, volume_overlay  # noqa: E402
 
 
 def make_pixel(lines, patches, fig, stock, vaiv: VAIV):
     height = vaiv.kwargs.get('size')[1]
-    xmin, xmax, ymin, ymax = [] * 4
+    xmin, xmax, ymin, ymax = [[] for i in range(4)]
 
     for i in range(len(stock)):
         bbox_x = patches[i].get_window_extent(fig.canvas.get_renderer())
@@ -55,7 +55,7 @@ def subplots(volume, MACD):
 
 def make_candlestick(vaiv: VAIV, stock, pred):
     ticker = vaiv.kwargs.get('ticker')
-    date = vaiv.kwargs.get('ticker')
+    date = vaiv.kwargs.get('trade_date')
     feature = vaiv.kwargs.get('feature')
     Volume = feature.get('Volume')
     MACD = feature.get('MACD')
@@ -65,19 +65,31 @@ def make_candlestick(vaiv: VAIV, stock, pred):
     candle = vaiv.kwargs.get('candle')
     linespace = vaiv.kwargs.get('linespace')
     candlewidth = vaiv.kwargs.get('candlewidth')
+    
+    vaiv.set_fname('png', ticker=ticker, date=date)
+    vaiv.set_path(vaiv.common.image.get('images'))
 
-    c = stock.loc[pred.Start:date]
+    if vaiv.path.exists():
+        return
 
+    try:
+        c = stock.loc[pred.Start:pred.End]
+    except KeyError:
+        print(ticker, pred)
+        return
     plt.style.use(style)
     color = ['#0061cb', '#efbb00', '#ff4aad', '#882dff', '#2bbcff']
     num, ax = subplots(Volume, MACD)
-    fig = plt.figure(size[0] / 100, size[1] / 100)
+    fig = plt.figure(figsize=(size[0]/100, size[1]/100))
     ax1 = fig.add_subplot(ax[0])
 
-    t = np.arrange(0, candle*linespace, linespace)
+    t = np.arange(0, candle*linespace, linespace)
     quote = c.copy()
     quote.insert(0, 't', t)
-    lines, patches = candlestick_ochl(
+    quote.reset_index(drop=True, inplace=True)
+    quote = quote.astype(int)
+    
+    lines, patches = candlestick_ohlc(
         ax1, quote.values, width=candlewidth,
         colorup='#77d879', colordown='#db3f3f', alpha=None
     )
@@ -86,7 +98,7 @@ def make_candlestick(vaiv: VAIV, stock, pred):
         ax2 = fig.add_subplot(ax[1])
         bc = volume_overlay(
             ax2, c['Open'], c['Close'], c['Volume'], width=1,
-            colorup='#77d879', colordown='#db3f3f', alpha=0.5,
+            colorup='#77d879', colordown='#db3f3f', alpha=None,
         )
         ax2.add_collection(bc)
         ax2.grid(False)
@@ -124,15 +136,14 @@ def make_candlestick(vaiv: VAIV, stock, pred):
     plt.tight_layout(pad=0)
     fig.set_constrained_layout_pads(w_pad=0, h_pad=0)
 
-    vaiv.set_fname('png', ticker=ticker, date=date)
-    vaiv.set_path(vaiv.common.image.get('images'))
     fig.savefig(vaiv.path)
+    
     pil_image = Image.open(vaiv.path)
     rgb_image = pil_image.convert('RGB')
     rgb_image.save(vaiv.path)
 
     vaiv.load_df('pixel')
-    make_pixel(ax1, lines, patches, fig, c, vaiv)
+    make_pixel(lines, patches, fig, c, vaiv)
     plt.close(fig)
 
 
@@ -143,20 +154,22 @@ def make_ticker_candlesticks(vaiv: VAIV, start_date, end_date):
     predict = vaiv.modedf.get('predict')
     condition = (predict.index >= start_date) & (predict.index <= end_date)
     predict = predict.loc[condition]
+
     if not predict.empty:
         for date in predict.index.tolist():
             pred = predict.loc[date]
+            vaiv.set_kwargs(trade_date=date)
             make_candlestick(vaiv, stock, pred)
 
 
 def make_all_candlesticks(
             vaiv: VAIV,
-            start_date='0',
+            start_date='2006',
             end_date='a',
         ):
     market = vaiv.kwargs.get('market')
     vaiv.load_df(market)
-    df = vaiv.modedf.get(market)
+    df = vaiv.modedf.get(market).reset_index()
 
     pbar = tqdm(total=len(df.Ticker))
     for ticker in df.Ticker:
@@ -167,21 +180,22 @@ def make_all_candlesticks(
 
 
 def update_candlestick(vaiv: VAIV):
-    date = vaiv.kwargs.get('ticker')
+    date = vaiv.kwargs.get('trade_date')
     vaiv.load_df('stock')
     vaiv.load_df('predict')
     stock = vaiv.modedf.get('stock')
     predict = vaiv.modedf.get('predict')
-    if date in predict.index:
+
+    if date in predict.index.tolist():
         pred = predict.loc[date]
         make_candlestick(vaiv, stock, pred)
 
 
 def update_all_candlesticks(vaiv: VAIV, today):
-    vaiv.set_kwargs(date=today)
+    vaiv.set_kwargs(trade_date=today)
     market = vaiv.kwargs.get('market')
     vaiv.load_df(market)
-    df = vaiv.modedf.get(market)
+    df = vaiv.modedf.get(market).reset_index()
 
     pbar = tqdm(total=len(df.Ticker))
     for ticker in df.Ticker:
@@ -197,8 +211,8 @@ if __name__ == '__main__':
         'market': 'Kospi',
         'feature': {'Volume': False, 'MA': [-1], 'MACD': False},
         'offset': 1,
-        'size': [1800, 650],
-        'candle': 245,
+        'size': [224, 224],
+        'candle': 20,
         'linespace': 1,
         'candlewidth': 0.8,
         'style': 'dark_background'  # default는 'classic'
@@ -209,3 +223,5 @@ if __name__ == '__main__':
     vaiv.set_stock()
     vaiv.set_prediction()
     vaiv.set_image()
+    vaiv.make_dir(common=True, image=True)
+    make_all_candlesticks(vaiv, start_date=start_date, end_date=end_date)

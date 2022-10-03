@@ -53,7 +53,7 @@ def make_ticker_predictions(vaiv: VAIV):
 def make_all_predictions(vaiv: VAIV):
     market = vaiv.kwargs.get('market')
     vaiv.load_df(market)
-    df = vaiv.modedf.get(market)
+    df = vaiv.modedf.get(market).reset_index()
 
     pbar = tqdm(total=len(df.Ticker))
     for ticker in df.Ticker:
@@ -68,18 +68,22 @@ def update_prediction(vaiv: VAIV):
     vaiv.load_df('predict')
     stock = vaiv.modedf.get('stock')
     predict = vaiv.modedf.get('predict')
-    new_predict = make_prediction(vaiv, stock)
-    predict = pd.concat([predict, new_predict])
-    vaiv.set_df('predict', predict)
-    vaiv.save_df('predict')
-
+    date = vaiv.kwargs.get('date')
+    candle = vaiv.kwargs.get('candle')
+    dates = stock.index.tolist()
+    if (date in dates) & (len(stock) > candle):
+        new_predict = make_prediction(vaiv, stock)
+        predict = pd.concat([predict, new_predict])
+        vaiv.set_df('predict', predict)
+        vaiv.save_df('predict')
+        
 
 # market과 candle을 set 하고 prediction 파일 update
 def update_all_predictions(vaiv: VAIV, today):
     vaiv.set_kwargs(date=today)
     market = vaiv.kwargs.get('market')
     vaiv.load_df(market)
-    df = vaiv.modedf.get(market)
+    df = vaiv.modedf.get(market).reset_index()
 
     pbar = tqdm(total=len(df.Ticker))
     for ticker in df.Ticker:
@@ -98,3 +102,6 @@ if __name__ == '__main__':
     vaiv.set_kwargs(**kwargs)
     vaiv.set_stock()
     vaiv.set_prediction()
+    vaiv.make_dir(common=True, prediction=True)
+    today = '2022-09-29'
+    update_all_predictions(vaiv, today)

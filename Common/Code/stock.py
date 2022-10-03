@@ -21,18 +21,17 @@ from utils.stock_format import correction  # noqa: E402
 def update_market(vaiv: VAIV):
     market = vaiv.kwargs.get('market')
     vaiv.load_df(market)
-    df = vaiv.modedf.get(market)
-    krx = stock.get_market_ticker_list(market.upper())
-
+    df = vaiv.modedf.get(market).reset_index()
+    krx = stock.get_market_ticker_list(market=market.upper())
     new_list = [df]
     for ticker in krx:
-        if ticker not in df.Ticker:
+        if ticker not in df.Ticker.tolist():
             name = stock.get_market_ticker_name(ticker)
-            new = pd.DataFrame({'Ticker': ticker, 'Name': name})
+            new = pd.DataFrame({'Ticker': [ticker], 'Name': [name]})
             new_list.append(new)
     df = pd.concat(new_list, ignore_index=True)
     df.sort_values('Ticker', inplace=True)
-    df.reset_index(drop=True, inplace=True)
+    df.set_index('Ticker', inplace=True)
     vaiv.set_df(market, df)
     vaiv.save_df(market)
     return
@@ -42,17 +41,20 @@ def update_market(vaiv: VAIV):
 def update_stock(vaiv: VAIV, today):
     ticker = vaiv.kwargs.get('ticker')
     vaiv.load_df('stock')
-    df = fdr.DataReader(ticker, today, today)
+    df = fdr.DataReader(ticker, today, today).reset_index(level=0)
     df = correction(df, [-1], '%Y-%m-%d %H:%M:%S')
+    if df.empty:
+        return
+    df = pd.concat([vaiv.modedf.get('stock'), df])
     vaiv.set_df('stock', df)
-    vaiv.save_df('stock', index=True)
+    vaiv.save_df('stock')
 
 
 # market을 set 하고, 시장의 모든 ticker마다 update_stock
 def update_all_stocks(vaiv: VAIV, today):
     market = vaiv.kwargs.get('market')
     vaiv.load_df(market)
-    df = vaiv.modedf.get(market)
+    df = vaiv.modedf.get(market).reset_index()
 
     pbar = tqdm(total=len(df.Ticker))
     for ticker in df.Ticker:
@@ -62,29 +64,40 @@ def update_all_stocks(vaiv: VAIV, today):
     pbar.close()
 
 
+def make_stock(vaiv: VAIV):
+    ticker = vaiv.kwargs.get('ticker')
+    vaiv.load_df('stock')
+    df = fdr.DataReader(ticker).reset_index(level=0)
+    df = correction(df, [-1], '%Y-%m-%d %H:%M:%S')
+    vaiv.set_df('stock', df)
+    vaiv.save_df('stock')
+
+
 # market을 set 하고, 해당 market의 모든 주가 데이터 받기
 def make_all_stocks(vaiv: VAIV):
     market = vaiv.kwargs.get('market')
     vaiv.load_df(market)
-    df = vaiv.modedf.get(market)
+    df = vaiv.modedf.get(market).reset_index()
+
     pbar = tqdm(total=len(df))
     for ticker in df.Ticker:
         vaiv.set_kwargs(ticker=ticker)
-        vaiv.load_df('stock')
-        df = fdr.DataReader(ticker).reset_index(level=0)
-        df = correction(df, [-1], '%Y-%m-%d %H:%M:%S')
-        vaiv.set_df('stock', df)
-        vaiv.save_df('stock')
+        make_stock(vaiv)
         pbar.update()
     pbar.close()
 
 
 if __name__ == '__main__':
     vaiv = VAIV(ROOT)
-    market = 'Kosdaq'
-    # today = '2022-09-07'
+    market = 'Kospi'
+    ticker = '172580'
+    today = '2022-09-07'
     vaiv.set_kwargs(market=market)  # market 지정
     vaiv.set_stock()  # stock 폴더 지정
     vaiv.make_dir(common=True, stock=True)
     # update_all_stocks(vaiv, today)
-    make_all_stocks(vaiv)
+    vaiv.set_kwargs(ticker=ticker)
+    # update_market(vaiv)
+    # make_all_stocks(vaiv)
+    # make_stock(vaiv)
+    update_all_stocks(vaiv, today)

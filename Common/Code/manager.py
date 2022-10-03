@@ -14,9 +14,9 @@ class FileManager:
     def set_path(self, dir):
         self.path = dir / self.fname
 
-    def load_df(self, empty: dict, index=None):
+    def load_df(self, empty: dict, index=None, index_col=None):
         try:
-            self.df = pd.read_csv(self.path)
+            self.df = pd.read_csv(self.path, index_col=index_col)
         except FileNotFoundError:
             self.df = pd.DataFrame(empty)
         if index:
@@ -29,15 +29,15 @@ class FileManager:
         self.df.to_csv(self.path)
 
 
-class Classification:  # Classification 폴더 관리
+class CNN:  # CNN 폴더 관리
     def __init__(self, vaiv):
         '''
-        Classification
+        CNN
           ㄴLabeling
           ㄴDataset
           ㄴCode
         '''
-        self.root = vaiv / 'Classification'
+        self.root = vaiv / 'CNN'
         self.top = {
             'labeling': self.root / 'Labeling',
             'dataset': self.root / 'Dataset',
@@ -79,10 +79,10 @@ class Classification:  # Classification 폴더 관리
             'labels': labels
         }
 
-    # Classification폴더 내부에 폴더들 생성
-    def make_classification(self, labeling=None, dataset=None):
-        for classification in self.top.values():
-            classification.mkdir(parents=True, exist_ok=True)
+    # cnn폴더 내부에 폴더들 생성
+    def make_cnn(self, labeling=None, dataset=None):
+        for cnn in self.top.values():
+            cnn.mkdir(parents=True, exist_ok=True)
 
         if labeling:
             self.labeling.mkdir(parents=True, exist_ok=True)
@@ -196,7 +196,7 @@ class Common:  # Common 폴더 관리
           ㄴ{candle}
             ㄴ{market}
         '''
-        self.pred = self.top['predict'] / candle / market
+        self.pred = self.top['predict'] / str(candle) / market
 
     # 차트 이미지 폴더 세팅
     def set_image(
@@ -284,7 +284,7 @@ class VAIV(FileManager):
     def __init__(self, vaiv):
         self.vaiv = Path(vaiv)
 
-        self.classification = Classification(self.vaiv)
+        self.cnn = CNN(self.vaiv)
         self.yolo = Yolo(self.vaiv)
         self.common = Common(self.vaiv)
         self.kwargs = {}
@@ -331,25 +331,26 @@ class VAIV(FileManager):
         Kospi / Kosdaq: None
         '''
         index = None
+        index_col = None
         if mode == 'label':
             empty = {'Date': [], 'Ticker': [], 'Label': []}
             ticker = self.kwargs['ticker']
             trade_date = self.kwargs['trade_date']
             self.set_fname('csv', ticker=ticker, trade_date=trade_date)
-            self.set_path(self.classification.labeling)
+            self.set_path(self.cnn.labeling)
 
         elif (mode == 'train') or (mode == 'valid') or (mode == 'test'):
             empty = {'Date': [], 'Ticker': [], 'Label': []}
             self.set_fname('csv', mode=mode)
-            self.set_path(self.classification.dataset['labels'])
+            self.set_path(self.cnn.dataset['labels'])
 
         elif mode == 'info':
             folder = self.kwargs['folder']
             self.set_fname('csv', mode=mode)
-            if folder == 'classification':
+            if folder == 'cnn':
                 empty = {'Name': [], 'Image': [], 'Labeling': [],
                          'Market': [], 'Train': [], 'Valid': [], 'Test': []}
-                self.set_path(self.classification.top['dataset'])
+                self.set_path(self.cnn.top['dataset'])
             elif folder == 'yolo':
                 empty = {'Name': [], 'Image': [], 'Market': [],
                          'Train': [], 'Valid': [], 'Test': []}
@@ -364,7 +365,7 @@ class VAIV(FileManager):
             ticker = self.kwargs['ticker']
             trade_date = self.kwargs['trade_date']
             self.set_fname('csv', ticker=ticker, trade_date=trade_date)
-            self.set_path(self.yolo.image['pixels'])
+            self.set_path(self.common.image['pixels'])
             index = 'Date'
 
         elif mode == 'signal':
@@ -384,7 +385,7 @@ class VAIV(FileManager):
             empty = {'Date': [], 'Start': [], 'End': [], 'Close': []}
             ticker = self.kwargs['ticker']
             self.set_fname('csv', ticker=ticker)
-            self.set_path(self.yolo.pred)
+            self.set_path(self.common.pred)
             index = 'Date'
 
         elif mode == 'stock':
@@ -403,12 +404,13 @@ class VAIV(FileManager):
             empty = {'Ticker': [], 'Name': []}
             self.set_fname('csv', market=mode)
             self.set_path(self.common.top['stock'])
+            index_col = 0
 
         else:
             return
 
         self.load[mode] = self.path
-        super().load_df(empty, index=index)
+        super().load_df(empty, index=index, index_col=index_col)
         self.modedf[mode] = self.df
 
     def set_df(self, mode, df):
@@ -440,17 +442,17 @@ class VAIV(FileManager):
     def set_labeling(self):
         offset = self.kwargs.get('offset')
         market = self.kwargs.get('market')
-        self.classification.set_labeling(offset, market)
+        self.cnn.set_labeling(offset, market)
 
     def set_dataset(self):
         '''
-        folder: 'Classification' 또는 'Yolo' 폴더
+        folder: 'cnn' 또는 'Yolo' 폴더
         '''
         name = self.kwargs.get('name')
         folder = self.kwargs.get('folder')
 
-        if folder == 'Classification':
-            self.classification.set_dataset(name)
+        if folder == 'cnn':
+            self.cnn.set_dataset(name)
         elif folder == 'Yolo':
             model = self.kwargs.get('model')
             self.yolo.set_dataset(name, model)
@@ -460,7 +462,7 @@ class VAIV(FileManager):
     def set_prediction(self):
         candle = self.kwargs.get('candle')
         market = self.kwargs.get('market')
-        self.yolo.set_prediction(candle, market)
+        self.common.set_prediction(candle, market)
 
     def set_stock(self):
         market = self.kwargs.get('market')
@@ -472,12 +474,12 @@ class VAIV(FileManager):
 
     def make_dir(
         self,
-        classification=None, labeling=None, dataset=None,
+        cnn=None, labeling=None, dataset=None,
         yolo=None, signal=True,
         common=None, stock=None, prediction=None, image=None, server=None
     ):
-        if classification:
-            self.classification.make_classification(
+        if cnn:
+            self.cnn.make_cnn(
                 labeling=labeling,
                 dataset=dataset
             )
@@ -495,4 +497,4 @@ class VAIV(FileManager):
 if __name__ == '__main__':
     ROOT = Path('/home/ubuntu/2022_VAIV_Cho/VAIV')
     vaiv = VAIV(ROOT)
-    vaiv.make_dir(classification=True, yolo=True, common=True)
+    vaiv.make_dir(cnn=True, yolo=True, common=True)
