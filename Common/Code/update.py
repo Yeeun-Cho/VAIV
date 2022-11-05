@@ -21,17 +21,23 @@ def DateCheck(today):
     return XKRX.is_session(today)
 
 
+def next_Date(today):
+    XKRX = ecals.get_calendar('XKRX')
+    return XKRX.next_session(today).strftime('%Y-%m-%d')
+
+
 def update(vaiv: VAIV, stock=True, prediction=True, image=True):
     today = datetime.now()
     today = today.strftime('%Y-%m-%d')
     if DateCheck(today):
+        trade_date = next_Date(today)
         if stock:
             update_market(vaiv)
             update_all_stocks(vaiv, today)
         if prediction:
-            update_all_predictions(vaiv, today)
+            update_all_predictions(vaiv, today, trade_date)
         if image:
-            update_all_candlesticks(vaiv, today)
+            update_all_candlesticks(vaiv, trade_date)
 
 
 def update_cnn(stock=False, prediction=False, image=False):
@@ -64,7 +70,7 @@ def update_yolo(stock=False, prediction=False, image=False):
         'candle': 245,
         'linespace': 1,
         'candlewidth': 0.8,
-        'style': 'classic'  # default는 'classic'
+        'style': 'default'  # 밝은 배경은 'default'
     }
     vaiv.set_kwargs(**kwargs)
     vaiv.set_stock()

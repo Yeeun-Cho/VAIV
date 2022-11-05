@@ -13,6 +13,23 @@ from manager import VAIV  # noqa: E402
 
 def delete_stock(vaiv: VAIV):
     vaiv.load_df('stock')
+    stock = vaiv.modedf.get('stock')
+    stock = stock.reset_index().drop_duplicates('Date').set_index('Date')
+    vaiv.set_df('stock', stock)
+    vaiv.save_df('stock')
+
+
+def delete_stocks(vaiv: VAIV):
+    market = vaiv.kwargs.get('market')
+    vaiv.load_df(market)
+    df = vaiv.modedf.get(market).reset_index()
+
+    pbar = tqdm(total=len(df))
+    for ticker in df.Ticker:
+        vaiv.set_kwargs(ticker=ticker)
+        delete_stock(vaiv)
+        pbar.update()
+    pbar.close()
 
 
 def delete_prediction(vaiv: VAIV):
@@ -51,4 +68,4 @@ if __name__ == '__main__':
     vaiv.set_kwargs(**kwargs)
     vaiv.set_stock()
     vaiv.set_prediction()
-    delete_predictions(vaiv)
+    delete_stocks(vaiv)

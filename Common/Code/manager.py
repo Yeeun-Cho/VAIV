@@ -97,11 +97,13 @@ class Yolo:  # Yolo 폴더 관리
         '''
         Yolo
           ㄴDataset
+          ㄴLabeling
           ㄴCode
         '''
         self.root = vaiv / 'Yolo'
         self.top = {
             'dataset': self.root / 'Dataset',
+            'labeling': self.root / 'Labeling',
             'code': self.root / 'Code'
         }
 
@@ -139,11 +141,20 @@ class Yolo:  # Yolo 폴더 관리
             self.model = model
             self.signals = self.dataset['signals'] / model
 
+    def set_labeling(self, market, name):
+        '''
+        Labeling
+          ㄴ{market}
+            ㄴ{name}
+        '''
+        self.labeling = self.top.get('labeling') / market / name
+
     # Yolo폴더 내부에 폴더들 생성
     def make_yolo(
         self,
         dataset=None,
-        signal=True
+        labeling=None,
+        signal=True,
     ):
         for yolo in self.top.values():
             yolo.mkdir(parents=True, exist_ok=True)
@@ -155,6 +166,9 @@ class Yolo:  # Yolo 폴더 관리
                 label.mkdir(parents=True, exist_ok=True)
             if signal:
                 self.signals.mkdir(parents=True, exist_ok=True)
+
+        if labeling:
+            self.labeling.mkdir(parents=True, exist_ok=True)
 
 
 class Common:  # Common 폴더 관리
@@ -382,7 +396,7 @@ class VAIV(FileManager):
             self.set_path(self.yolo.signals)
 
         elif mode == 'predict':
-            empty = {'Date': [], 'Start': [], 'End': [], 'Close': []}
+            empty = {'Date': [], 'Start': [], 'End': []}
             ticker = self.kwargs['ticker']
             self.set_fname('csv', ticker=ticker)
             self.set_path(self.common.pred)
@@ -440,9 +454,15 @@ class VAIV(FileManager):
         )
 
     def set_labeling(self):
-        offset = self.kwargs.get('offset')
+        folder = self.kwargs.get('folder')
         market = self.kwargs.get('market')
-        self.cnn.set_labeling(offset, market)
+
+        if folder == 'cnn':
+            offset = self.kwargs.get('offset')
+            self.cnn.set_labeling(offset, market)
+        elif folder == 'yolo':
+            name = self.kwargs.get('name')
+            self.yolo.set_labeling(market, name)
 
     def set_dataset(self):
         '''
@@ -484,7 +504,7 @@ class VAIV(FileManager):
                 dataset=dataset
             )
         if yolo:
-            self.yolo.make_yolo(dataset=dataset, signal=signal)
+            self.yolo.make_yolo(dataset=dataset, labeling=labeling, signal=signal)
         if common:
             self.common.make_common(
                 stock=stock,

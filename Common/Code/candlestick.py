@@ -13,13 +13,13 @@ sys.path.append(ROOT)
 sys.path.append(ROOT / 'Common' / 'Code')
 
 from manager import VAIV  # noqa: E402
-from utils.mpf import candlestick_ohlc, volume_overlay  # noqa: E402
+from utils.mpf import candlestick_ochl, volume_overlay  # noqa: E402
 
 
 def make_pixel(lines, patches, fig, stock, vaiv: VAIV):
     height = vaiv.kwargs.get('size')[1]
     xmin, xmax, ymin, ymax = [[] for i in range(4)]
-
+    
     for i in range(len(stock)):
         bbox_x = patches[i].get_window_extent(fig.canvas.get_renderer())
         bbox_y = lines[i].get_window_extent(fig.canvas.get_renderer())
@@ -29,7 +29,7 @@ def make_pixel(lines, patches, fig, stock, vaiv: VAIV):
         ymax.append(height-bbox_y.y0)
 
     dates = stock.index.tolist()
-
+    
     df = pd.DataFrame({
         'Date': dates,
         'Xmin': xmin, 'Ymin': ymin,
@@ -65,12 +65,12 @@ def make_candlestick(vaiv: VAIV, stock, pred):
     candle = vaiv.kwargs.get('candle')
     linespace = vaiv.kwargs.get('linespace')
     candlewidth = vaiv.kwargs.get('candlewidth')
-    
+
     vaiv.set_fname('png', ticker=ticker, date=date)
     vaiv.set_path(vaiv.common.image.get('images'))
 
-    if vaiv.path.exists():
-        return
+    # if vaiv.path.exists():
+    #     return
 
     try:
         c = stock.loc[pred.Start:pred.End]
@@ -81,15 +81,24 @@ def make_candlestick(vaiv: VAIV, stock, pred):
     color = ['#0061cb', '#efbb00', '#ff4aad', '#882dff', '#2bbcff']
     num, ax = subplots(Volume, MACD)
     fig = plt.figure(figsize=(size[0]/100, size[1]/100))
-    ax1 = fig.add_subplot(ax[0])
+    ax1 = fig.add_subplot(1,1,1)
 
-    t = np.arange(0, candle*linespace, linespace)
-    quote = c.copy()
+    ax1.grid(False)
+    ax1.set_xticklabels([])
+    ax1.set_yticklabels([])
+    ax1.xaxis.set_visible(False)
+    ax1.yaxis.set_visible(False)
+    ax1.axis('off')
+
+    plt.tight_layout(pad=0)
+    fig.set_constrained_layout_pads(w_pad=0, h_pad=0)
+        
+    t = np.arange(1, candle*linespace+1, linespace)
+    quote = c[['Open', 'Close', 'High', 'Low']]
     quote.insert(0, 't', t)
     quote.reset_index(drop=True, inplace=True)
-    quote = quote.astype(int)
     
-    lines, patches = candlestick_ohlc(
+    lines, patches = candlestick_ochl(
         ax1, quote.values, width=candlewidth,
         colorup='#77d879', colordown='#db3f3f', alpha=None
     )
@@ -126,18 +135,8 @@ def make_candlestick(vaiv: VAIV, stock, pred):
                 color=color[i], alpha=None
             )
 
-    ax1.grid(False)
-    ax1.set_xticklabels([])
-    ax1.set_yticklabels([])
-    ax1.xaxis.set_visible(False)
-    ax1.yaxis.set_visible(False)
-    ax1.axis('off')
-
-    plt.tight_layout(pad=0)
-    fig.set_constrained_layout_pads(w_pad=0, h_pad=0)
-
     fig.savefig(vaiv.path)
-    
+
     pil_image = Image.open(vaiv.path)
     rgb_image = pil_image.convert('RGB')
     rgb_image.save(vaiv.path)
@@ -166,13 +165,14 @@ def make_all_candlesticks(
             vaiv: VAIV,
             start_date='2006',
             end_date='a',
+            num = 968,
         ):
     market = vaiv.kwargs.get('market')
     vaiv.load_df(market)
     df = vaiv.modedf.get(market).reset_index()
-
-    pbar = tqdm(total=len(df.Ticker))
-    for ticker in df.Ticker:
+    
+    pbar = tqdm(total=len(df.Ticker.tolist()[:num]))
+    for ticker in df.Ticker.tolist()[:num]:
         vaiv.set_kwargs(ticker=ticker)
         make_ticker_candlesticks(vaiv, start_date, end_date)
         pbar.update()
@@ -211,17 +211,19 @@ if __name__ == '__main__':
         'market': 'Kospi',
         'feature': {'Volume': False, 'MA': [-1], 'MACD': False},
         'offset': 1,
-        'size': [224, 224],
-        'candle': 20,
+        'size': [1800, 650],
+        'candle': 245,
         'linespace': 1,
         'candlewidth': 0.8,
-        'style': 'dark_background'  # default는 'classic'
+        'style': 'default',
     }
-    start_date = '2006-01-01'
+    # start_date = '2021-01-01'
+    # end_date = '2021-06-30'
+    start_date = '2021-06-30'
     end_date = '2021-12-31'
     vaiv.set_kwargs(**kwargs)
     vaiv.set_stock()
     vaiv.set_prediction()
     vaiv.set_image()
     vaiv.make_dir(common=True, image=True)
-    make_all_candlesticks(vaiv, start_date=start_date, end_date=end_date)
+    make_all_candlesticks(vaiv, start_date=start_date, end_date=end_date, num=50)

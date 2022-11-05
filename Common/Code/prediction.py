@@ -13,17 +13,15 @@ from manager import VAIV  # noqa: E402
 # date 별 prediction 행 return
 def make_prediction(vaiv: VAIV, stock):
     candle = vaiv.kwargs.get('candle')
-    date = vaiv.kwargs.get('date')
+    trade_date = vaiv.kwargs.get('trade_date')
     dates = stock.index.tolist()
-    index = dates.index(date)
+    index = dates.index(trade_date)
     end = dates[index-1]
     start = dates[index-candle]
-    close = stock.loc[date, 'Close']
     new_predict = pd.DataFrame({
-                        'Date': [date],
+                        'Date': [trade_date],
                         'Start': [start],
                         'End': [end],
-                        'Close': [close],
                     })
     new_predict.set_index('Date', inplace=True)
     return new_predict
@@ -40,8 +38,8 @@ def make_ticker_predictions(vaiv: VAIV):
         vaiv.load_df('predict')
         predict = vaiv.modedf.get('predict')
         pred_list = [predict]
-        for date in dates:
-            vaiv.set_kwargs(date=date)
+        for trade_date in dates:
+            vaiv.set_kwargs(trade_date=trade_date)
             new_predict = make_prediction(vaiv, stock)
             pred_list.append(new_predict)
         predict = pd.concat(pred_list)
@@ -68,19 +66,28 @@ def update_prediction(vaiv: VAIV):
     vaiv.load_df('predict')
     stock = vaiv.modedf.get('stock')
     predict = vaiv.modedf.get('predict')
-    date = vaiv.kwargs.get('date')
+    today = vaiv.kwargs.get('today')
+    trade_date = vaiv.kwargs.get('trade_date')
     candle = vaiv.kwargs.get('candle')
     dates = stock.index.tolist()
-    if (date in dates) & (len(stock) > candle):
-        new_predict = make_prediction(vaiv, stock)
+    if (today in dates) & (len(stock) > candle):
+        index = dates.index(today)
+        start = dates[index-candle+1]
+        new_predict = pd.DataFrame({
+                        'Date': [trade_date],
+                        'Start': [start],
+                        'End': [today],
+                    })
+        new_predict.set_index('Date', inplace=True)
         predict = pd.concat([predict, new_predict])
         vaiv.set_df('predict', predict)
         vaiv.save_df('predict')
-        
+
 
 # market과 candle을 set 하고 prediction 파일 update
-def update_all_predictions(vaiv: VAIV, today):
-    vaiv.set_kwargs(date=today)
+def update_all_predictions(vaiv: VAIV, today, trade_date):
+    vaiv.set_kwargs(today=today)
+    vaiv.set_kwargs(trade_date=trade_date)
     market = vaiv.kwargs.get('market')
     vaiv.load_df(market)
     df = vaiv.modedf.get(market).reset_index()

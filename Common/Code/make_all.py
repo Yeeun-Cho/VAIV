@@ -14,7 +14,7 @@ from candlestick import make_all_candlesticks  # noqa: E402
 def make_all(
         vaiv: VAIV, stock=True, prediction=True, candlestick=True,
         start_date='2006', end_date='a'
-    ):
+        ):
     if stock:
         make_all_stocks(vaiv)
         print('Create Stocks Finished')
@@ -53,7 +53,7 @@ if __name__ == '__main__':
         'candle': 20,
         'linespace': 1,
         'candlewidth': 0.8,
-        'style': 'dark_background'  # default는 'classic', 어두운 배경은 'dark_background'
+        'style': 'dark_background'  # 밝은 배경은 'default', 어두운 배경은 'dark_background'
     }
     kwargs2 = {
         'market': 'Kospi',
@@ -63,7 +63,7 @@ if __name__ == '__main__':
         'candle': 245,
         'linespace': 1,
         'candlewidth': 0.8,
-        'style': 'classic'  # default는 'classic', 어두운 배경은 'dark_background'
+        'style': 'default'  # 밝은 배경은 'default', 어두운 배경은 'dark_background'
     }
     year = opt.year
     if opt.yolo:
@@ -79,6 +79,6 @@ if __name__ == '__main__':
 
     print(opt)
     if year > 0:
-        make_all(vaiv, stock=False, prediction=False, candlestick=False, start_date=str(year), end_date=str(year+1))
+        make_all(vaiv, stock=False, prediction=False, candlestick=True, start_date=str(year), end_date=str(year+1))
     else:
         make_all(vaiv, stock=False, prediction=False, candlestick=True)

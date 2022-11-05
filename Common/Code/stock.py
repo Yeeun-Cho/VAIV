@@ -46,6 +46,7 @@ def update_stock(vaiv: VAIV, today):
     if df.empty:
         return
     df = pd.concat([vaiv.modedf.get('stock'), df])
+    df = df.astype(int)
     vaiv.set_df('stock', df)
     vaiv.save_df('stock')
 
