@@ -40,23 +40,10 @@ if __name__ == '__main__':
     parser.add_argument(
         '--yolo', action='store_true', help='update yolo files'
     )
-    parser.add_argument(
-        '--cnn', action='store_true', help='update cnn files'
-    )
     opt = parser.parse_args()
     vaiv = VAIV(ROOT)
-    kwargs1 = {
-        'market': 'Kospi',
-        'feature': {'Volume': False, 'MA': [-1], 'MACD': False},
-        'offset': 1,
-        'size': [224, 224],
-        'candle': 20,
-        'linespace': 1,
-        'candlewidth': 0.8,
-        'style': 'dark_background'  # 밝은 배경은 'default', 어두운 배경은 'dark_background'
-    }
-    kwargs2 = {
-        'market': 'Kospi',
+    kwargs = {
+        'market': 'Kosdaq',
         'feature': {'Volume': False, 'MA': [-1], 'MACD': False},
         'offset': 1,
         'size': [1800, 650],
@@ -66,19 +53,14 @@ if __name__ == '__main__':
         'style': 'default'  # 밝은 배경은 'default', 어두운 배경은 'dark_background'
     }
     year = opt.year
-    if opt.yolo:
-        vaiv.set_kwargs(**kwargs2)
-    elif opt.cnn:
-        vaiv.set_kwargs(**kwargs1)
-    else:
-        print('Please Choose yolo or cnn')
+    vaiv.set_kwargs(**kwargs)
     vaiv.set_stock()
     vaiv.set_prediction()
     vaiv.set_image()
-    vaiv.make_dir(common=True, stock=False, prediction=False, image=True)
+    vaiv.make_dir(common=True, stock=True, prediction=True, image=True)
 
     print(opt)
     if year > 0:
-        make_all(vaiv, stock=False, prediction=False, candlestick=True, start_date=str(year), end_date=str(year+1))
+        make_all(vaiv, stock=True, prediction=True, candlestick=True, start_date=str(year), end_date=str(year+1))
     else:
-        make_all(vaiv, stock=False, prediction=False, candlestick=True)
+        make_all(vaiv, stock=True, prediction=True, candlestick=True)

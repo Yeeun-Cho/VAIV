@@ -108,7 +108,7 @@ class Yolo:  # Yolo 폴더 관리
         }
 
     # 데이터셋 폴더 세팅
-    def set_dataset(self, name, model=None):
+    def set_dataset(self, name):
         '''
         Dataset
           ㄴ{name}
@@ -116,38 +116,46 @@ class Yolo:  # Yolo 폴더 관리
               ㄴtrain / valid / test
             ㄴlabels
               ㄴtrain / valid / test
-            ㄴsignals
         '''
-        self.output = self.top['dataset'] / name
-        images = self.output / 'images'
-        labels = self.output / 'labels'
-        signals = self.output / 'signals'
+        output = self.top['dataset'] / name
+        train = output / 'train'
+        valid = output / 'valid'
+        test = output / 'test'
 
         self.dataset = {
-            'images': {
-                'train': images / 'train',
-                'valid': images / 'valid',
-                'test': images / 'test'
+            'train': {
+                'labels': train / 'labels',
+                'images': train / 'images',
+                'dataframes': train / 'dataframes',
             },
-            'labels': {
-                'train': labels / 'train',
-                'valid': labels / 'valid',
-                'test': labels / 'test'
+            'valid': {
+                'labels': valid / 'labels',
+                'images': valid / 'images',
+                'dataframes': valid / 'dataframes',
             },
-            'signals': signals
+            'test': {
+                'labels': test / 'labels',
+                'images': test / 'images',
+                'dataframes': test / 'dataframes',
+            },
         }
 
-        if model:
-            self.model = model
-            self.signals = self.dataset['signals'] / model
 
     def set_labeling(self, market, name):
         '''
         Labeling
           ㄴ{market}
             ㄴ{name}
+              ㄴMinMax
+              ㄴPattern
+              ㄴMerge
         '''
-        self.labeling = self.top.get('labeling') / market / name
+        parent = self.top.get('labeling') / market / name
+        self.labeling = {
+            'pattern': parent / 'Pattern',
+            'min_max': parent / 'MinMax',
+            'merge': parent / 'Merge',
+        }
 
     # Yolo폴더 내부에 폴더들 생성
     def make_yolo(
@@ -160,15 +168,13 @@ class Yolo:  # Yolo 폴더 관리
             yolo.mkdir(parents=True, exist_ok=True)
 
         if dataset:
-            for image in self.dataset['images'].values():
-                image.mkdir(parents=True, exist_ok=True)
-            for label in self.dataset['labels'].values():
-                label.mkdir(parents=True, exist_ok=True)
-            if signal:
-                self.signals.mkdir(parents=True, exist_ok=True)
+            for k,v in self.dataset.items():
+                for p in v.values():
+                    p.mkdir(parents=True, exist_ok=True)
 
         if labeling:
-            self.labeling.mkdir(parents=True, exist_ok=True)
+            for label in self.labeling.values():
+                label.mkdir(parents=True, exist_ok=True)
 
 
 class Common:  # Common 폴더 관리
@@ -420,6 +426,29 @@ class VAIV(FileManager):
             self.set_path(self.common.top['stock'])
             index_col = 0
 
+        elif mode=='pattern':
+            ticker = self.kwargs.get('ticker')
+            trade_date = self.kwargs.get('trade_date')
+            empty = {'Label': [], 'Range': [], 'Pattern': []}
+            self.set_fname('csv', ticker=ticker, trade_date=trade_date)
+            self.set_path(self.yolo.labeling.get(mode))
+            index = 'Label'
+
+        elif mode=='min_max':
+            ticker = self.kwargs.get('ticker')
+            trade_date = self.kwargs.get('trade_date')
+            empty = {'Label': [], 'Date': [], 'Priority': []}
+            self.set_fname('csv', ticker=ticker, trade_date=trade_date)
+            self.set_path(self.yolo.labeling.get(mode))
+            index = 'Label'
+
+        elif mode=='merge':
+            ticker = self.kwargs.get('ticker')
+            trade_date = self.kwargs.get('trade_date')
+            empty = {'Label': [], 'CenterX': [], 'CenterY': [], 'Width': [], 'Height': [], 'Pattern': [], 'Priority': []}
+            self.set_fname('csv', ticker=ticker, trade_date=trade_date)
+            self.set_path(self.yolo.labeling.get(mode))
+
         else:
             return
 
@@ -436,7 +465,7 @@ class VAIV(FileManager):
         self.df = self.modedf.get(mode)
         super().save_df()
 
-    def set_image(self):
+    def set_image(self, p=None):
         style = self.kwargs.get('style')
         offset = self.kwargs.get('offset')
         market = self.kwargs.get('market')
@@ -446,6 +475,8 @@ class VAIV(FileManager):
         linespace = self.kwargs.get('linespace')
         candlewidth = self.kwargs.get('candlewidth')
 
+        if p:
+            self.common.top['image'] = p
         self.common.set_image(
             feature, offset,
             market, style,
@@ -473,9 +504,8 @@ class VAIV(FileManager):
 
         if folder == 'cnn':
             self.cnn.set_dataset(name)
-        elif folder == 'Yolo':
-            model = self.kwargs.get('model')
-            self.yolo.set_dataset(name, model)
+        elif folder == 'yolo':
+            self.yolo.set_dataset(name)
         else:
             print('There is no such folder')
 

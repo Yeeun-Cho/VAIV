@@ -1,75 +1,61 @@
-import os
-os.environ['OPENBLAS_NUM_THREADS'] = '1'
 from pathlib import Path
 from tqdm import tqdm
 import pandas as pd
-import torch
 import sys
-import numpy as np
 from multiprocessing import Process
 sys.path.append('/home/ubuntu/2022_VAIV_Cho/VAIV/Yolo/Code/yolov7')
-from utils.general import xyxy2xywh, xywh2xyxy  # noqa: E402
 
 ROOT = Path('/home/ubuntu/2022_VAIV_Cho/VAIV')
 sys.path.append(str(ROOT))
 sys.path.append(str(ROOT / 'Common' / 'Code'))
 
 from manager import VAIV  # noqa: E402
-from pattern_labeling import make_pattern_labelings  # noqa: E402
-from min_max_labeling import make_min_max_labelings  # noqa: E402
-from merge_labeling import make_merge_labelings  # noqa: E402
+from pattern import Bullish, Bearish  # noqa: E402
 
 
-def xyxy_to_xywh(vaiv: VAIV, xyxy):
-    size = vaiv.kwargs.get('size')
-    shape = (size[1], size[0], 3)
-    gn = torch.tensor(shape)[[1, 0, 1, 0]]
-    xywh = (
-        xyxy2xywh(torch.tensor(xyxy).view(1, 4)) / gn
-    ).view(-1).tolist()  # normalized xywh
-    return np.round(xywh, 6)
+date_range = {'Bullish Harami': 2, 'Bullish Engulfing': 2, 'Bullish Doji': 2, 'Hammer': 2, 'Morningstar': 3, 'Bearish Harami': 2, 'Bearish Engulfing': 2, 'Gravestone Doji': 2, 'Hanging Man': 2, 'Eveningstar': 3}
 
-
-def date_range(date, dates, num):
-    now = dates.index(date)
-    if now < num-1:
-        return dates[0:num]
-    elif now > (len(dates) - (num-1)):
-        return dates[-num:len(dates)]
-    else:
-        plus = num // 2
-        minus = num - plus
-        return dates[now-minus:now+plus]
-
-
-def get_xyxy(vaiv: VAIV, drange):
-    pixel = vaiv.modedf.get('pixel')
-    xmins = []
-    ymins = []
-    xmaxs = []
-    ymaxs = []
-    for date in drange:
-        xmin, ymin, xmax, ymax = pixel.loc[date, 'Xmin':'Ymax'].tolist()
-        xmins.append(xmin)
-        ymins.append(ymin)
-        xmaxs.append(xmax)
-        ymaxs.append(ymax)
-    return [min(xmins), min(ymins), max(xmaxs), max(ymaxs)]
+def make_pattern_labelings(vaiv: VAIV):
+    ticker = vaiv.kwargs.get('ticker')
+    trade_date = vaiv.kwargs.get('trade_date')
+    stock = vaiv.modedf.get('stock')
+    predict = vaiv.modedf.get('predict')
+    start = predict.Start.loc[trade_date]
+    end = predict.End.loc[trade_date]
+    stock = stock.loc[start:end]
     
+    dates = stock.index.tolist()
+    buy_count = 0
+    sell_count = 0
+    pattern_list = []
+    for i, date in enumerate(dates):
+        bullish = Bullish(date, stock)
+        bearish = Bearish(date, stock)
+        for pattern, check in bullish.items():
+            label = list(date_range.keys()).index(pattern)
+            if check:
+                buy_count += 1
+                df = pd.DataFrame({'Label': [label], 'Range': '/'.join(dates[i:i+date_range[pattern]]), 'Pattern': pattern})
+                pattern_list.append(df)
+        for pattern, check in bearish.items():
+            label = list(date_range.keys()).index(pattern)
+            if check:
+                sell_count += 1
+                df = pd.DataFrame({'Label': [label], 'Range': '/'.join(dates[i:i+date_range[pattern]]), 'Pattern': pattern})
+                pattern_list.append(df)
+
+    patterns = pd.concat(pattern_list).set_index('Label')
+    vaiv.set_df('pattern', patterns)
+    vaiv.save_df('pattern')
+
 
 def make_ticker_labelings(vaiv: VAIV, start_date, end_date):
     predict = vaiv.modedf.get('predict')
     predict = predict.loc[start_date:end_date]
     for trade_date in predict.index.tolist():
-        print(trade_date)
         vaiv.set_kwargs(trade_date=trade_date)
-        vaiv.load_df('pixel')
-        vaiv.load_df('min_max')
-        make_min_max_labelings(vaiv)
         vaiv.load_df('pattern')
         make_pattern_labelings(vaiv)
-        vaiv.load_df('merge')
-        make_merge_labelings(vaiv, 4, 2)
     return
 
 
@@ -83,7 +69,6 @@ def make_all_labelings(vaiv: VAIV, start_date='2006', end_date='z', num=968):
         vaiv.set_kwargs(ticker=ticker)
         vaiv.load_df('stock')
         vaiv.load_df('predict')
-        print(ticker)
         make_ticker_labelings(vaiv, start_date, end_date)
         pbar.update()
     pbar.close()
@@ -101,7 +86,8 @@ if __name__ == '__main__':
         'candlewidth': 0.8,
         'style': 'default',
         'folder': 'yolo',
-        'name': 'Kospi50_2006-2022',  # Labeling 폴더 이름 (기존과 겹치지 않게 정해야 한다)
+        'pattern': False,
+        'name': 'Pattern',  # Labeling 폴더 이름
     }
     vaiv.set_kwargs(**kwargs)
     vaiv.set_stock()
@@ -109,7 +95,7 @@ if __name__ == '__main__':
     vaiv.set_image()
     vaiv.set_labeling()
     vaiv.make_dir(yolo=True, labeling=True)
-    years = range(2006, 2023)  # 년도 (2006 <= year < 2023)
+    years = range(2006, 2023)  # 년도
     start_mds = ['01-01', '04-01', '07-01', '10-01']
     end_mds = ['03-31', '06-30', '09-30', '12-31']
     num = 50  # 종목 개수
@@ -120,4 +106,6 @@ if __name__ == '__main__':
             end_date = year + end_md
             p = Process(target=make_all_labelings, args=(vaiv, start_date, end_date, num, ))
             p.start()
+
+            quit()
     # make_all_labelings(vaiv, start_date=start_date, end_date=end_date, num=50)

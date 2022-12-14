@@ -1,0 +1,1 @@
+python detect.py --save-txt --trace --weights /home/ubuntu/2022_VAIV_JSPARK/YOLOv7/yolov7/runs/train/yolov7-50-2006-2017train2/weights/best.pt --conf 0.5 --imgsz 640 --source /home/ubuntu/2022_VAIV_Cho/VAIV/Yolo/Dataset/Kospi50_2006-2022/test/images --name Merge_0.5_2006_5days --save-txt --pair 1 --device 2

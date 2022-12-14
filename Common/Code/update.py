@@ -80,14 +80,34 @@ def update_yolo(stock=False, prediction=False, image=False):
     update(vaiv, stock=stock, prediction=prediction, image=image)
 
 
+def custom_update(stock=False, prediction=False, image=False, market='Kospi'):
+    vaiv = VAIV(ROOT)
+    kwargs = {
+        'market': market,
+        'feature': {'Volume': False, 'MA': [-1], 'MACD': False},
+        'offset': 1,
+        'size': [1800, 650],
+        'candle': 245,
+        'linespace': 1,
+        'candlewidth': 0.8,
+        'style': 'default'  # 밝은 배경은 'default'
+    }
+    vaiv.set_kwargs(**kwargs)
+    vaiv.set_stock()
+    vaiv.set_prediction()
+    vaiv.set_image()
+    vaiv.make_dir(stock=True, prediction=True, image=True)
+    update(vaiv, stock=stock, prediction=prediction, image=image)
+    
+
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
-    parser.add_argument(
-        '--yolo', action='store_true', help='update yolo files'
-    )
-    parser.add_argument(
-        '--cnn', action='store_true', help='update cnn files'
-    )
+    # parser.add_argument(
+    #     '--yolo', action='store_true', help='update yolo files'
+    # )
+    # parser.add_argument(
+    #     '--cnn', action='store_true', help='update cnn files'
+    # )
     parser.add_argument(
         '--stock', action='store_true', help='update stock data'
     )
@@ -97,12 +117,16 @@ if __name__ == '__main__':
     parser.add_argument(
         '--image', action='store_true', help='update images'
     )
+    parser.add_argument(
+        '-m', '--market', type=str, help='Stock Market'
+    )
 
     opt = parser.parse_args()
     print(opt)
-
-    if opt.yolo:
-        update_yolo(stock=opt.stock, prediction=opt.prediction, image=opt.image)
-        opt.stock = False  # stock 중복 업데이트 방지
-    if opt.cnn:
-        update_cnn(stock=opt.stock, prediction=opt.prediction,  image=opt.image)
+    
+    custom_update(**vars(opt))
+    # if opt.yolo:
+    #     update_yolo(stock=opt.stock, prediction=opt.prediction, image=opt.image)
+    #     opt.stock = False  # stock 중복 업데이트 방지
+    # if opt.cnn:
+    #     update_cnn(stock=opt.stock, prediction=opt.prediction,  image=opt.image)

@@ -17,7 +17,7 @@ def main(date_thres):
     stock = Path(stock_path)
     
     roots = [
-        Path('/home/ubuntu/2022_VAIV_Cho/VAIV/Yolo/Code/yolov7/runs/detect/jp_detect_11012')
+        Path('/home/ubuntu/2022_VAIV_Cho/VAIV/Yolo/Code/runs/detect/Kospi50M_0.8')
     ]
     
     for root in roots:

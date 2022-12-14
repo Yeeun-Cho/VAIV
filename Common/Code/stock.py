@@ -5,13 +5,14 @@ import sys
 # df = df[~df['Name'].str.contains('ETN')]
 import FinanceDataReader as fdr
 from pykrx import stock
+import pandas_datareader.data as web
 from pathlib import Path
 from tqdm import tqdm
 import pandas as pd
 
 ROOT = Path('/home/ubuntu/2022_VAIV_Cho/VAIV')
-sys.path.append(ROOT)
-sys.path.append(ROOT / 'Common' / 'Code')
+sys.path.extend(str(ROOT))
+sys.path.extend(str(ROOT / 'Common' / 'Code'))
 
 from manager import VAIV  # noqa: E402
 from utils.stock_format import correction  # noqa: E402
@@ -65,13 +66,17 @@ def update_all_stocks(vaiv: VAIV, today):
     pbar.close()
 
 
-def make_stock(vaiv: VAIV):
+def make_stock(vaiv: VAIV, start='1990-01-01', end=None, save=True):
     ticker = vaiv.kwargs.get('ticker')
-    vaiv.load_df('stock')
-    df = fdr.DataReader(ticker).reset_index(level=0)
+    # df = web.DataReader(f'{ticker}.KS', "yahoo", start, end).reset_index(level=0)
+    df = fdr.DataReader(ticker, start=start, end=end).reset_index(level=0)
     df = correction(df, [-1], '%Y-%m-%d %H:%M:%S')
-    vaiv.set_df('stock', df)
-    vaiv.save_df('stock')
+    if save:
+        vaiv.load_df('stock')
+        vaiv.set_df('stock', df)
+        vaiv.save_df('stock')
+    else:
+        return df
 
 
 # market을 set 하고, 해당 market의 모든 주가 데이터 받기
@@ -90,7 +95,7 @@ def make_all_stocks(vaiv: VAIV):
 
 if __name__ == '__main__':
     vaiv = VAIV(ROOT)
-    market = 'Kospi'
+    market = 'Kosdaq'
     ticker = '172580'
     today = '2022-09-07'
     vaiv.set_kwargs(market=market)  # market 지정
@@ -99,6 +104,6 @@ if __name__ == '__main__':
     # update_all_stocks(vaiv, today)
     vaiv.set_kwargs(ticker=ticker)
     # update_market(vaiv)
-    # make_all_stocks(vaiv)
+    make_all_stocks(vaiv)
     # make_stock(vaiv)
-    update_all_stocks(vaiv, today)
+    # update_all_stocks(vaiv, today)

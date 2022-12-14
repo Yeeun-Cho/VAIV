@@ -3,4 +3,5 @@ conda activate YEenv
 
 # python /home/ubuntu/2022_VAIV_Cho/VAIV/Common/Code/update.py --yolo --cnn --stock --prediction &
 
-python /home/ubuntu/2022_VAIV_Cho/VAIV/Common/Code/update.py --yolo --cnn --stock --prediction --image &
+python /home/ubuntu/2022_VAIV_Cho/VAIV/Common/Code/update.py --stock --prediction --image -m Kospi &
+python /home/ubuntu/2022_VAIV_Cho/VAIV/Common/Code/update.py --stock --prediction --image -m Kosdaq &

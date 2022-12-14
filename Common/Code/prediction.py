@@ -2,12 +2,14 @@ import pandas as pd
 from tqdm import tqdm
 from pathlib import Path
 import sys
+import multiprocessing as mp
 
 ROOT = Path('/home/ubuntu/2022_VAIV_Cho/VAIV')
-sys.path.append(ROOT)
-sys.path.append(ROOT / 'Common' / 'Code')
+sys.path.extend(str(ROOT))
+sys.path.extend(str(ROOT / 'Common' / 'Code'))
 
 from manager import VAIV  # noqa: E402
+sys.path = list(set(sys.path))
 
 
 # date 별 prediction 행 return
@@ -28,7 +30,8 @@ def make_prediction(vaiv: VAIV, stock):
 
 
 # ticker를 지정하고 date 별 make_prediction
-def make_ticker_predictions(vaiv: VAIV):
+def make_ticker_predictions(vaiv: VAIV, ticker=None):
+    vaiv.set_kwargs(ticker=ticker)
     candle = vaiv.kwargs.get('candle')
     vaiv.load_df('stock')
     vaiv.load_df('predict')
@@ -53,12 +56,18 @@ def make_all_predictions(vaiv: VAIV):
     vaiv.load_df(market)
     df = vaiv.modedf.get(market).reset_index()
 
-    pbar = tqdm(total=len(df.Ticker))
-    for ticker in df.Ticker:
-        vaiv.set_kwargs(ticker=ticker)
-        make_ticker_predictions(vaiv)
-        pbar.update()
-    pbar.close()
+    pool = mp.Pool(5)
+    tickers = df.Ticker.tolist()
+    vaiv_list = [vaiv for i in range(len(tickers))]
+
+    pool.starmap(make_ticker_predictions, zip(vaiv_list, tickers))
+
+    # pbar = tqdm(total=len(df.Ticker))
+    # for ticker in df.Ticker:
+    #     vaiv.set_kwargs(ticker=ticker)
+    #     make_ticker_predictions(vaiv)
+    #     pbar.update()
+    # pbar.close()
 
 
 def update_prediction(vaiv: VAIV):
@@ -104,11 +113,14 @@ if __name__ == '__main__':
     vaiv = VAIV(ROOT)
     kwargs = {
         'candle': 245,
-        'market': 'Kospi',
+        'market': 'Kosdaq',
     }
     vaiv.set_kwargs(**kwargs)
     vaiv.set_stock()
     vaiv.set_prediction()
     vaiv.make_dir(common=True, prediction=True)
     today = '2022-09-29'
-    update_all_predictions(vaiv, today)
+    # vaiv.set_kwargs(ticker='03481K')
+    make_ticker_predictions(vaiv, ticker='03481K')
+    # make_all_predictions(vaiv)
+    # update_all_predictions(vaiv, today)

@@ -19,7 +19,7 @@ def condition(dates: list, detect, trade_date, date_thres):
 
 count = {}
 count_date = {}
-p = '/home/ubuntu/2022_VAIV_Cho/VAIV/Yolo/Code/yolov7/runs/detect/jp_detect_11012/signals'
+p = '/home/ubuntu/2022_VAIV_Cho/VAIV/Yolo/Code/runs/detect/Kospi50M/signals'
 signal = Path(p)
 stock_path = '/home/ubuntu/2022_VAIV_Cho/VAIV/Common/Stock/Kospi'
 stock = Path(stock_path)

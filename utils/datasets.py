@@ -177,7 +177,7 @@ class LoadImages:  # for inference
             files = [p]  # files
         else:
             raise Exception(f'ERROR: {p} does not exist')
-        
+
         images = [x for x in files if x.split('.')[-1].lower() in img_formats]
         ni = len(images)
 
