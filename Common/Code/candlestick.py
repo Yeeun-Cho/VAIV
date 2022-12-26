@@ -8,13 +8,14 @@ from PIL import Image
 from pathlib import Path
 import sys
 import multiprocessing as mp
+import time
 
 ROOT = Path('/home/ubuntu/2022_VAIV_Cho/VAIV')
 sys.path.extend(str(ROOT))
 sys.path.extend(str(ROOT / 'Common' / 'Code'))
 
 from manager import VAIV  # noqa: E402
-from utils.mpf import candlestick_ochl, volume_overlay  # noqa: E402
+from Common.Code.utils.mpf import candlestick_ochl, volume_overlay  # noqa: E402
 
 
 def make_pixel(lines, patches, fig, stock, vaiv: VAIV):
@@ -66,6 +67,7 @@ def make_candlestick(vaiv: VAIV, stock, pred, pixel=True, save_dir=None):
     candle = vaiv.kwargs.get('candle')
     linespace = vaiv.kwargs.get('linespace')
     candlewidth = vaiv.kwargs.get('candlewidth')
+    trade_date = pred['Date']
 
     vaiv.set_fname('png', ticker=ticker, date=date)
     if save_dir:
@@ -73,12 +75,21 @@ def make_candlestick(vaiv: VAIV, stock, pred, pixel=True, save_dir=None):
     else:
         vaiv.set_path(vaiv.common.image.get('images'))
 
-    # if vaiv.path.exists():
-    #     print(vaiv.path)
-    #     return
+    if vaiv.path.exists():
+        print(vaiv.path)
+        return
+
+    dates = stock.index.tolist()
+    trade_index = dates.index(trade_date)
+    start_index = trade_index - 245
+    end_index = trade_index - 1
+    if start_index < 0:
+        return
+    start = dates[start_index]
+    end = dates[end_index]
 
     try:
-        c = stock.loc[pred.Start:pred.End]
+        c = stock.loc[start:end]
     except KeyError:
         print(ticker, pred)
         return
@@ -157,17 +168,16 @@ def make_ticker_candlesticks(vaiv: VAIV, start_date, end_date):
     vaiv.load_df('predict')
     stock = vaiv.modedf.get('stock')
     predict = vaiv.modedf.get('predict')
-    try:
-        condition = (predict.index >= start_date) & (predict.index <= end_date)
-    except TypeError:
-        print(f"Ticker {vaiv.kwargs.get('ticker')} Prediction is empty")
-        return
-    predict = predict.loc[condition]
+    offset = vaiv.kwargs.get('offset')
 
     if not predict.empty:
-        for date in predict.index.tolist():
-            pred = predict.loc[date]
-            vaiv.set_kwargs(trade_date=date)
+        condition = (predict.index >= start_date) & (predict.index <= end_date)
+        predict = predict.loc[condition]
+        dates = predict.index.tolist()
+        for i in range(0, len(dates), offset):
+            trade_date = dates[i]
+            pred = predict.loc[trade_date]
+            vaiv.set_kwargs(trade_date=trade_date)
             make_candlestick(vaiv, stock, pred)
 
 
@@ -219,7 +229,7 @@ if __name__ == '__main__':
     kwargs = {
         'market': 'Kospi',
         'feature': {'Volume': False, 'MA': [-1], 'MACD': False},
-        'offset': 1,
+        'offset': 10,
         'size': [1800, 650],
         'candle': 245,
         'linespace': 1,
@@ -235,11 +245,20 @@ if __name__ == '__main__':
     years = ['2006-', '2007-', '2008-', '2022-']
     start_mds = ['01-01', '04-01', '07-01', '10-01']
     end_mds = ['03-31', '06-30', '09-30', '12-31']
-    num = 50
-    for year in range(2013, 2019):
+    num = 942
+    jobs = []
+    start = time.time()
+    for year in range(2006, 2023):
         year = str(year) + '-'
         for start_md, end_md in zip(start_mds, end_mds):
             start_date = year + start_md
             end_date = year + end_md
             p = mp.Process(target=make_all_candlesticks, args=(vaiv, start_date, end_date, num, ))
             p.start()
+            jobs.append(p)
+
+    for proc in jobs:
+        proc.join()
+
+    end = time.time()
+    print('Time: {0:.2f}'.format(end-start))
